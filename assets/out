@@ -1,0 +1,59 @@
+#!/bin/sh
+
+set -e -u
+
+exec 3>&1
+exec 1>&2
+
+source=$1
+
+if [ -z "$source" ]; then
+  echo "usage: $0 <path/to/source>"
+  exit 1
+fi
+
+payload=$(mktemp /tmp/resource-in.XXXXXX)
+
+cat > $payload <&0
+
+cd $source
+
+master=$(jq -r .source.master < $payload)
+namespace=$(jq -r .source.namespace < $payload)
+cluster_cert=$(jq -r .source.cluster_cert < $payload)
+client_cert=$(jq -r .source.client_cert < $payload)
+client_key=$(jq -r .source.client_key < $payload)
+resource_type=$(jq -r .source.resource_type < $payload)
+resource_name=$(jq -r .source.resource_name < $payload)
+container=$(jq -r .source.container < $payload)
+
+image_file=$(jq -r .params.image < $payload)
+image=$(cat $image_file)
+
+tag=$(jq -r .params.tag < $payload)
+
+tag_file=$(jq -r .params.tag_file < $payload)
+tag=$(cat $tag_file)
+
+digest_file=$(jq -r .params.digest_file < $payload)
+digest=$(cat $digest_file)
+
+pwd=$(dirname $0)
+cluster_cert_path="$pwd/ca.pem"
+client_cert_path="$pwd/cert.pem"
+client_key_path="$pwd/key.pem"
+
+echo $cluster_cert | base64 -d > $cluster_cert_path
+echo $client_cert | base64 -d > $client_cert_path
+echo $client_key | base64 -d > $client_key_path
+
+kubectl --server=$master --namespace=$namespace \
+        --certificate-authority=$cluster_cert_path \
+        --client-key=$client_key_path --client-certificate=$client_cert_path \
+        set image $resource_type/$resource_name $container=$image@$digest
+
+jq -n "{
+  version: {
+    image: $(echo $image@$digest | jq -R .)
+  }
+}" >&3

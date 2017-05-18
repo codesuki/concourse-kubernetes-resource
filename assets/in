@@ -1,0 +1,51 @@
+#!/bin/sh
+
+set -e -u
+
+exec 3>&1
+exec 1>&2
+
+destination=$1
+
+if [ -z "$destination" ]; then
+  echo "usage: $0 <path/to/destination>"
+  exit 1
+fi
+
+payload=$(mktemp /tmp/resource-in.XXXXXX)
+
+cat > $payload <&0
+
+cd $destination
+
+master=$(jq -r .source.master < $payload)
+namespace=$(jq -r .source.namespace < $payload)
+cluster_cert=$(jq -r .source.cluster_cert < $payload)
+client_cert=$(jq -r .source.client_cert < $payload)
+client_key=$(jq -r .source.client_key < $payload)
+resource_type=$(jq -r .source.resource_type < $payload)
+resource_name=$(jq -r .source.resource_name < $payload)
+container=$(jq -r .source.container < $payload)
+
+pwd=$(dirname $0)
+
+cluster_cert_path="$pwd/ca.pem"
+client_cert_path="$pwd/cert.pem"
+client_key_path="$pwd/key.pem"
+
+echo $cluster_cert | base64 -d > $cluster_cert_path
+echo $client_cert | base64 -d > $client_cert_path
+echo $client_key | base64 -d > $client_key_path
+
+result=$(kubectl --server=$master --namespace=$namespace \
+        --certificate-authority=$cluster_cert_path \
+        --client-key=$client_key_path --client-certificate=$client_cert_path \
+        get $resource_type/$resource_name -o json)
+
+image=$(echo $result | jq --arg container $container '.spec.template.spec.containers[] | select(.name == $container) | .image')
+
+jq -n "{
+  version: {
+    image: $(echo $image)
+  }
+}" >&3
