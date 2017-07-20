@@ -23,6 +23,8 @@ namespace=$(jq -r .source.namespace < $payload)
 cluster_cert=$(jq -r .source.cluster_cert < $payload)
 client_cert=$(jq -r .source.client_cert < $payload)
 client_key=$(jq -r .source.client_key < $payload)
+username=$(jq -r '.source.username // empty' < $payload)
+password=$(jq -r .source.password < $payload)
 resource_type=$(jq -r .source.resource_type < $payload)
 resource_name=$(jq -r .source.resource_name < $payload)
 container=$(jq -r .source.container < $payload)
@@ -38,19 +40,26 @@ tag=$(cat $tag_file)
 digest_file=$(jq -r .params.digest_file < $payload)
 digest=$(cat $digest_file)
 
-pwd=$(dirname $0)
-cluster_cert_path="$pwd/ca.pem"
-client_cert_path="$pwd/cert.pem"
-client_key_path="$pwd/key.pem"
+if [ -z "$username" ]; then
+    pwd=$(dirname $0)
+    cluster_cert_path="$pwd/ca.pem"
+    client_cert_path="$pwd/cert.pem"
+    client_key_path="$pwd/key.pem"
 
-echo $cluster_cert | base64 -d > $cluster_cert_path
-echo $client_cert | base64 -d > $client_cert_path
-echo $client_key | base64 -d > $client_key_path
+    echo $cluster_cert | base64 -d > $cluster_cert_path
+    echo $client_cert | base64 -d > $client_cert_path
+    echo $client_key | base64 -d > $client_key_path
 
-kubectl --server=$master --namespace=$namespace \
-        --certificate-authority=$cluster_cert_path \
-        --client-key=$client_key_path --client-certificate=$client_cert_path \
-        set image $resource_type/$resource_name $container=$image@$digest
+    kubectl --server=$master --namespace=$namespace \
+            --certificate-authority=$cluster_cert_path \
+            --client-key=$client_key_path --client-certificate=$client_cert_path \
+            set image $resource_type/$resource_name $container=$image@$digest
+else
+    kubectl --server=$master --namespace=$namespace \
+            --username=$username --password=$password \
+            --insecure-skip-tls-verify \
+            set image $resource_type/$resource_name $container=$image@$digest
+fi
 
 jq -n "{
   version: {
