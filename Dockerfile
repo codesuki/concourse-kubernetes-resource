@@ -10,3 +10,5 @@ RUN curl -o /usr/local/bin/kubectl \
 RUN chmod +x /usr/local/bin/kubectl
 
 COPY assets/ /opt/resource/
+
+RUN chmod +x /opt/resource/in && chmod +x /opt/resource/out
