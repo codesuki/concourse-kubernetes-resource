@@ -5,6 +5,8 @@ set -e -u
 exec 3>&1
 exec 1>&2
 
+source shared.sh
+
 destination=$1
 
 if [ -z "$destination" ]; then
@@ -18,16 +20,7 @@ cat > $payload <&0
 
 cd $destination
 
-master=$(jq -r .source.master < $payload)
-namespace=$(jq -r .source.namespace < $payload)
-cluster_cert=$(jq -r .source.cluster_cert < $payload)
-client_cert=$(jq -r .source.client_cert < $payload)
-client_key=$(jq -r .source.client_key < $payload)
-username=$(jq -r '.source.username // empty' < $payload)
-password=$(jq -r .source.password < $payload)
-resource_type=$(jq -r .source.resource_type < $payload)
-resource_name=$(jq -r .source.resource_name < $payload)
-container=$(jq -r .source.container < $payload)
+readSourceArguments $payload
 
 if [ -z "$username" ]; then
     pwd=$(dirname $0)

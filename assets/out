@@ -5,6 +5,8 @@ set -e -u
 exec 3>&1
 exec 1>&2
 
+source shared.sh
+
 source=$1
 
 if [ -z "$source" ]; then
@@ -18,26 +20,29 @@ cat > $payload <&0
 
 cd $source
 
-master=$(jq -r .source.master < $payload)
-namespace=$(jq -r .source.namespace < $payload)
-cluster_cert=$(jq -r .source.cluster_cert < $payload)
-client_cert=$(jq -r .source.client_cert < $payload)
-client_key=$(jq -r .source.client_key < $payload)
-username=$(jq -r '.source.username // empty' < $payload)
-password=$(jq -r .source.password < $payload)
-resource_type=$(jq -r .source.resource_type < $payload)
-resource_name=$(jq -r .source.resource_name < $payload)
-container=$(jq -r .source.container < $payload)
+readSourceArguments $payload
 
-image_file=$(jq -r .params.image < $payload)
+image_file=$(jq -r '.params.image // empty' < $payload)
+if [ -z "$image_file" ]; then
+    echo image_file not set >&2
+    exit 1
+fi
 image=$(cat $image_file)
 
-tag=$(jq -r .params.tag < $payload)
-
-tag_file=$(jq -r .params.tag_file < $payload)
-tag=$(cat $tag_file)
+tag=$(jq -r '.params.tag // empty' < $payload)
+tag_file=$(jq -r '.params.tag_file // empty' < $payload)
+if [ -n "$tag_file" ]; then
+    tag=$(cat $tag_file)
+elif [ -z "$tag" ]; then
+     echo tag and tag_file not set >&2
+     exit 1
+fi
 
 digest_file=$(jq -r .params.digest_file < $payload)
+if [ -z "$digest_file" ]; then
+    echo digest_file not set >&2
+    exit 1
+fi
 digest=$(cat $digest_file)
 
 if [ -z "$username" ]; then
