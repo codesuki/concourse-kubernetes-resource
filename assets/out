@@ -27,23 +27,33 @@ if [ -z "$image_file" ]; then
     echo image_file not set >&2
     exit 1
 fi
+
 image=$(cat $image_file)
+if [ -z "$image" ]; then
+    echo image_file is empty >&2
+    exit 1
+fi
 
 tag=$(jq -r '.params.tag // empty' < $payload)
 tag_file=$(jq -r '.params.tag_file // empty' < $payload)
 if [ -n "$tag_file" ]; then
     tag=$(cat $tag_file)
-elif [ -z "$tag" ]; then
-     echo tag and tag_file not set >&2
-     exit 1
 fi
 
+digest=""
 digest_file=$(jq -r .params.digest_file < $payload)
-if [ -z "$digest_file" ]; then
-    echo digest_file not set >&2
+if [ -n "$digest_file" ]; then
+    digest=$(cat $digest_file)
+fi
+
+if [ -n "$tag" ]; then
+    version=$tag
+elif [ -n "$digest" ]; then
+    version=$digest
+else
+    echo neither digest nor tag are set >&2
     exit 1
 fi
-digest=$(cat $digest_file)
 
 if [ -z "$username" ]; then
     pwd=$(dirname $0)
@@ -55,15 +65,19 @@ if [ -z "$username" ]; then
     echo $client_cert | base64 -d > $client_cert_path
     echo $client_key | base64 -d > $client_key_path
 
-    kubectl --server=$master --namespace=$namespace \
+    kubectl --server=$master \
+            --namespace=$namespace \
             --certificate-authority=$cluster_cert_path \
-            --client-key=$client_key_path --client-certificate=$client_cert_path \
-            set image $resource_type/$resource_name $container=$image@$digest
+            --client-key=$client_key_path \
+            --client-certificate=$client_cert_path \
+            set image $resource_type/$resource_name $container=$image@$version
 else
-    kubectl --server=$master --namespace=$namespace \
-            --username=$username --password=$password \
-            --insecure-skip-tls-verify \
-            set image $resource_type/$resource_name $container=$image@$digest
+    echo kubectl --server=$master \
+            --namespace=$namespace \
+            --username=$username \
+            --password=$password \
+            $insecure_skip_tls_verify \
+            set image $resource_type/$resource_name $container=$image@$version
 fi
 
 jq -n "{

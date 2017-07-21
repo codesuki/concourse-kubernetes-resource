@@ -31,6 +31,12 @@ function readSourceArguments() {
         exit 1
     fi
 
+    insecure_skip_tls_verify=""
+    skip_tls_verify=$(jq -r '.source.skip_tls_verify // empty' < $payload)
+    if [ -n "$skip_tls_verify" ]; then
+        insecure_skip_tls_verify="--insecure-skip-tls-verify"
+    fi
+
     # { list; } is needed to run the functions in the current shell
     if ! { checkCerts $1 || checkBasicAuth $1; }; then
         echo neither certs nor basic authentication parameters are set. >&2
