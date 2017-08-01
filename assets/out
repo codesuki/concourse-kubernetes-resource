@@ -72,7 +72,7 @@ if [ -z "$username" ]; then
             --client-certificate=$client_cert_path \
             set image $resource_type/$resource_name $container=$image@$version
 else
-    echo kubectl --server=$master \
+    kubectl --server=$master \
             --namespace=$namespace \
             --username=$username \
             --password=$password \
