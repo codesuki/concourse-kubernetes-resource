@@ -70,14 +70,14 @@ if [ -z "$username" ]; then
             --certificate-authority=$cluster_cert_path \
             --client-key=$client_key_path \
             --client-certificate=$client_cert_path \
-            set image $resource_type/$resource_name $container=$image@$version
+            set image $resource_type/$resource_name $container=$image:$version
 else
     kubectl --server=$master \
             --namespace=$namespace \
             --username=$username \
             --password=$password \
             $insecure_skip_tls_verify \
-            set image $resource_type/$resource_name $container=$image@$version
+            set image $resource_type/$resource_name $container=$image:$version
 fi
 
 jq -n "{
